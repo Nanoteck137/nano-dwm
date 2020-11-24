@@ -2002,7 +2002,7 @@ void
 updatestatus(void)
 {
 	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
-		strcpy(stext, "Custom DWM"VERSION);
+		strcpy(stext, "nano-dwm-"VERSION);
 	drawbar(selmon);
 }
 
