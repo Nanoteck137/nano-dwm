@@ -274,6 +274,8 @@ static void xinitvisual();
 static void zoom(const Arg *arg);
 
 /* variables */
+const BAR_ITEM_WIDTH = 30;
+
 static Systray *systray = NULL;
 static const char broken[] = "broken";
 static char stext[256];
@@ -478,7 +480,7 @@ buttonpress(XEvent *e)
 	if (ev->window == selmon->barwin) {
 		i = x = 0;
 		do
-			x += TEXTW(tags[i]);
+			x += BAR_ITEM_WIDTH;
 		while (ev->x >= x && ++i < LENGTH(tags));
 		if (i < LENGTH(tags)) {
 			click = ClkTagBar;
@@ -821,17 +823,58 @@ drawbar(Monitor *m)
 		if (c->isurgent)
 			urg |= c->tags;
 	}
+
+    const char *arrow = "\ue0b0";
+    int arrow_width = drw_fontset_getwidth(drw, arrow);
+
 	x = 0;
-	for (i = 0; i < LENGTH(tags); i++) {
-		w = TEXTW(tags[i]);
-		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
-		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
-		if (occ & 1 << i)
-			drw_rect(drw, x + boxs, boxs, boxw, boxw,
-				m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
-				urg & 1 << i);
-		x += w;
+
+    for(int i = 0; i < LENGTH(tags); i++) {
+        const char *tag_text = tags[i];
+        int text_width = drw_fontset_getwidth(drw, tag_text);
+
+        int x_off = 0;
+        if(i > 0) {
+            x_off = arrow_width;
+        }
+
+        int selected = m->tagset[m->seltags] & 1 << i;
+        int next_selected = 0;
+        if((i + 1) < LENGTH(tags)) {
+            next_selected = m->tagset[m->seltags] & 1 << (i + 1);
+        }
+
+        Clr *selected_scheme = scheme[SchemeSel];
+        Clr *normal_scheme = scheme[SchemeNorm];
+
+        Clr normal_arrow_scheme[] = { normal_scheme[1], normal_scheme[1], normal_scheme[2] };
+        Clr selected_arrow_scheme[] = { selected_scheme[1], normal_scheme[1], normal_scheme[2] };
+
+        if(next_selected) {
+            normal_arrow_scheme[0] = normal_scheme[1];
+            normal_arrow_scheme[1] = selected_scheme[1];
+        }
+
+        // Tag Text
+        drw_setscheme(drw, selected ? selected_scheme : normal_scheme);
+        int text_box_width = BAR_ITEM_WIDTH - arrow_width;
+        int text_padding = 0;
+        if(i == 0) {
+            text_box_width += 5;
+            text_padding = 5;
+        } else {
+            text_padding = -2;
+        }
+
+		drw_text(drw, x, 0, text_box_width, bh, text_padding, tag_text, urg & 1 << i);
+
+        // Arrow
+        drw_setscheme(drw, selected ? selected_arrow_scheme : normal_arrow_scheme);
+		drw_text(drw, x + text_box_width, 0, arrow_width, bh, 0, arrow, 0);
+
+		x += arrow_width + text_box_width;
 	}
+
 	w = blw = TEXTW(m->ltsymbol);
 	drw_setscheme(drw, scheme[SchemeNorm]);
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
@@ -847,6 +890,7 @@ drawbar(Monitor *m)
 			drw_rect(drw, x, 0, w, bh, 1, 1);
 		}
 	}
+
 	drw_map(drw, m->barwin, 0, 0, m->ww - stw, bh);
 }
 
