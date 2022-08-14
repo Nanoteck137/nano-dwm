@@ -274,7 +274,7 @@ static void xinitvisual();
 static void zoom(const Arg *arg);
 
 /* variables */
-const BAR_ITEM_WIDTH = 30;
+const BAR_ITEM_WIDTH = 40;
 
 static Systray *systray = NULL;
 static const char broken[] = "broken";
@@ -861,9 +861,9 @@ drawbar(Monitor *m)
         int text_padding = 0;
         if(i == 0) {
             text_box_width += 5;
-            text_padding = 5;
+            text_padding = 10;
         } else {
-            text_padding = -2;
+            text_padding = 2;
         }
 
 		drw_text(drw, x, 0, text_box_width, bh, text_padding, tag_text, urg & 1 << i);
@@ -877,7 +877,7 @@ drawbar(Monitor *m)
 
 	w = blw = TEXTW(m->ltsymbol);
 	drw_setscheme(drw, scheme[SchemeNorm]);
-	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
+	x = drw_text(drw, x - 10, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
 
 	if ((w = m->ww - tw - stw - x) > bh) {
 		if (m->sel) {
