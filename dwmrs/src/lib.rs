@@ -1,7 +1,7 @@
 use x11::xlib::{
     Display, XSetErrorHandler, XErrorEvent, XSelectInput, XDefaultRootWindow,
     SubstructureRedirectMask, XSync, BadWindow, BadDrawable, BadMatch,
-    BadAccess, Window, Visual, Colormap, Drawable, GC,
+    BadAccess, Window, Visual, Colormap, Drawable, GC, XMoveResizeWindow,
 };
 use x11::xft::XftColor;
 use std::ffi::{c_int, c_uint, c_uchar, c_char, c_float, c_void, CString, CStr};
@@ -372,6 +372,28 @@ pub unsafe extern "C" fn rust_tile(monitor: *mut Monitor) {
         client = next_tiled((*client).next);
         index += 1;
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_resize_bar_window(
+    display: *mut Display,
+    monitor: *mut Monitor,
+) {
+    let monitor = &*monitor;
+
+    let width = (*monitor).ww;
+    // TODO(patrik): Systray
+    // if (showsystray && m == systraytomon(m))
+    // 	w -= getsystraywidth();
+
+    XMoveResizeWindow(
+        display,
+        monitor.bar_window,
+        monitor.wx,
+        monitor.by,
+        width as u32,
+        bh as u32,
+    );
 }
 
 #[no_mangle]
