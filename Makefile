@@ -22,11 +22,14 @@ ${OBJ}: config.h config.mk
 config.h:
 	cp config.def.h $@
 
-dwm: ${OBJ}
+dwm: ${OBJ} dwmrs
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
 
 clean:
 	rm -f dwm ${OBJ} dwm-${VERSION}.tar.gz
+
+dwmrs:
+	cargo build --release --manifest-path=dwmrs/Cargo.toml
 
 dist: clean
 	mkdir -p dwm-${VERSION}
@@ -48,4 +51,4 @@ uninstall:
 	rm -f ${DESTDIR}${PREFIX}/bin/dwm\
 		${DESTDIR}${MANPREFIX}/man1/dwm.1
 
-.PHONY: all options clean dist install uninstall
+.PHONY: all dwmrs options clean dist install uninstall

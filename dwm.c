@@ -45,6 +45,7 @@
 #include "drw.h"
 #include "util.h"
 
+
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
 #define CLEANMASK(mask)         (mask & ~(numlockmask|LockMask) & (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
@@ -169,6 +170,8 @@ struct Systray {
 	Client *icons;
 };
 
+#include <dwmrs.h>
+
 /* function declarations */
 static void applyrules(Client *c);
 static int applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact);
@@ -219,7 +222,7 @@ static void propertynotify(XEvent *e);
 static void quit(const Arg *arg);
 static Monitor *recttomon(int x, int y, int w, int h);
 static void removesystrayicon(Client *i);
-static void resize(Client *c, int x, int y, int w, int h, int interact);
+void resize(Client *c, int x, int y, int w, int h, int interact);
 static void resizebarwin(Monitor *m);
 static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
@@ -1281,16 +1284,18 @@ maprequest(XEvent *e)
 void
 monocle(Monitor *m)
 {
-	unsigned int n = 0;
-	Client *c;
+    rust_monocle(m);
 
-	for (c = m->clients; c; c = c->next)
-		if (ISVISIBLE(c))
-			n++;
-	if (n > 0) /* override layout symbol */
-		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
-	for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
-		resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
+	// unsigned int n = 0;
+	// Client *c;
+ //
+	// for (c = m->clients; c; c = c->next)
+	// 	if (ISVISIBLE(c))
+	// 		n++;
+	// if (n > 0) /* override layout symbol */
+	// 	snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
+	// for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
+	// 	resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
 }
 
 void
@@ -2133,14 +2138,20 @@ updategeom(void)
 		XineramaScreenInfo *info = XineramaQueryScreens(dpy, &nn);
 		XineramaScreenInfo *unique = NULL;
 
+        // Get the number of current monitors inside DWM
 		for (n = 0, m = mons; m; m = m->next, n++);
+
 		/* only consider unique geometries as separate screens */
 		unique = ecalloc(nn, sizeof(XineramaScreenInfo));
-		for (i = 0, j = 0; i < nn; i++)
-			if (isuniquegeom(unique, j, &info[i]))
+		for (i = 0, j = 0; i < nn; i++) {
+			if (isuniquegeom(unique, j, &info[i])) {
 				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
+            }
+        }
+
 		XFree(info);
 		nn = j;
+
 		if (n <= nn) { /* new monitors available */
 			for (i = 0; i < (nn - n); i++) {
 				for (m = mons; m && m->next; m = m->next);
@@ -2547,7 +2558,9 @@ xinitvisual()
 			visual = infos[i].visual;
 			depth = infos[i].depth;
 			cmap = XCreateColormap(dpy, root, visual, AllocNone);
-			useargb = 1;
+			// useargb = 1;
+
+
 			break;
 		}
 	}
@@ -2586,13 +2599,15 @@ main(int argc, char *argv[])
 		fputs("warning: no locale support\n", stderr);
 	if (!(dpy = XOpenDisplay(NULL)))
 		die("dwm: cannot open display");
-	checkotherwm();
+    hello_world_rust();
+    check_other_wm(dpy);
 	setup();
 #ifdef __OpenBSD__
 	if (pledge("stdio rpath proc exec", NULL) == -1)
 		die("pledge");
 #endif /* __OpenBSD__ */
 	scan();
+    print_monitor(selmon);
 	run();
 	cleanup();
 	XCloseDisplay(dpy);
