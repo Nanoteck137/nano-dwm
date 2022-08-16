@@ -78,6 +78,14 @@ impl Client {
         let monitor = unsafe { &*self.monitor };
         self.tags & monitor.tagset[monitor.seltags as usize] > 0
     }
+
+    fn full_width(&self) -> i32 {
+        self.width + self.border_width * 2
+    }
+
+    fn full_height(&self) -> i32 {
+        self.height + self.border_width * 2
+    }
 }
 
 // typedef struct {
@@ -231,5 +239,75 @@ pub unsafe extern "C" fn rust_monocle(monitor: *mut Monitor) {
             0,
         );
         client = next_tiled((*client).next);
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_tile(monitor: *mut Monitor) {
+    let monitor = &*monitor;
+
+    let mut count = 0;
+    let mut client = monitor.clients;
+    while !client.is_null() {
+        if (*client).is_visable() {
+            count += 1;
+        }
+        client = (*client).next;
+    }
+
+    if count == 0 {
+        return;
+    }
+
+    let mw = if count > monitor.nmaster {
+        if monitor.nmaster > 0 {
+            (monitor.ww as f32 * monitor.mfact) as i32
+        } else {
+            0
+        }
+    } else {
+        monitor.ww
+    };
+
+    let mut my = 0;
+    let mut ty = 0;
+
+    let mut index = 0;
+    let mut client = next_tiled(monitor.clients);
+    while !client.is_null() {
+        let border_width = (*client).border_width;
+
+        if index < monitor.nmaster {
+            let h = (monitor.wh - my) / (count.min(monitor.nmaster) - index);
+            resize(
+                client,
+                monitor.wx,
+                monitor.wy + my,
+                mw - (border_width * 2),
+                h - (border_width * 2),
+                0,
+            );
+
+            if my + (*client).full_height() < monitor.wh {
+                my += (*client).full_height();
+            }
+        } else {
+            let h = (monitor.wh - ty) / (count - index);
+            resize(
+                client,
+                monitor.wx + mw,
+                monitor.wy + ty,
+                monitor.ww - mw - (border_width * 2),
+                h - (border_width * 2),
+                0,
+            );
+
+            if ty + (*client).full_height() < monitor.wh {
+                ty += (*client).full_height();
+            }
+        }
+
+        client = next_tiled((*client).next);
+        index += 1;
     }
 }
