@@ -223,7 +223,7 @@ static void quit(const Arg *arg);
 static Monitor *recttomon(int x, int y, int w, int h);
 static void removesystrayicon(Client *i);
 void resize(Client *c, int x, int y, int w, int h, int interact);
-static void resizebarwin(Monitor *m);
+void resizebarwin(Monitor *m);
 static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
 static void resizerequest(XEvent *e);
@@ -281,11 +281,12 @@ const BAR_ITEM_WIDTH = 40;
 
 static Systray *systray = NULL;
 static const char broken[] = "broken";
-static char stext[256];
+char stext[256];
 static int screen;
+
 static int sw, sh;           /* X display screen geometry width, height */
-static int bh, blw = 0;      /* bar geometry */
-static int lrpad;            /* sum of left and right padding for text */
+int bh, blw = 0;      /* bar geometry */
+int lrpad;            /* sum of left and right padding for text */
 static int (*xerrorxlib)(Display *, XErrorEvent *);
 static unsigned int numlockmask = 0;
 static void (*handler[LASTEvent]) (XEvent *) = {
@@ -308,10 +309,10 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 static Atom wmatom[WMLast], netatom[NetLast], xatom[XLast];
 static int running = 1;
 static Cur *cursor[CurLast];
-static Clr **scheme;
+Clr **scheme;
 static Display *dpy;
 static Drw *drw;
-static Monitor *mons, *selmon;
+Monitor *mons, *selmon;
 static Window root, wmcheckwin;
 
 static int useargb = 0;
@@ -804,97 +805,7 @@ dirtomon(int dir)
 void
 drawbar(Monitor *m)
 {
-	int x, w, tw = 0, stw = 0;
-	int boxs = drw->fonts->h / 9;
-	int boxw = drw->fonts->h / 6 + 2;
-	unsigned int i, occ = 0, urg = 0;
-	Client *c;
-
-	if(showsystray && m == systraytomon(m))
-		stw = getsystraywidth();
-
-	/* draw status first so it can be overdrawn by tags later */
-	if (m == selmon) { /* status is only drawn on selected monitor */
-		drw_setscheme(drw, scheme[SchemeNorm]);
-		tw = TEXTW(stext) - lrpad / 2 + 2; /* 2px right padding */
-		drw_text(drw, m->ww - tw - stw, 0, tw, bh, lrpad / 2 - 2, stext, 0);
-	}
-
-	resizebarwin(m);
-	for (c = m->clients; c; c = c->next) {
-		occ |= c->tags;
-		if (c->isurgent)
-			urg |= c->tags;
-	}
-
-    const char *arrow = "\ue0b0";
-    int arrow_width = drw_fontset_getwidth(drw, arrow);
-
-	x = 0;
-
-    for(int i = 0; i < LENGTH(tags); i++) {
-        const char *tag_text = tags[i];
-        int text_width = drw_fontset_getwidth(drw, tag_text);
-
-        int x_off = 0;
-        if(i > 0) {
-            x_off = arrow_width;
-        }
-
-        int selected = m->tagset[m->seltags] & 1 << i;
-        int next_selected = 0;
-        if((i + 1) < LENGTH(tags)) {
-            next_selected = m->tagset[m->seltags] & 1 << (i + 1);
-        }
-
-        Clr *selected_scheme = scheme[SchemeSel];
-        Clr *normal_scheme = scheme[SchemeNorm];
-
-        Clr normal_arrow_scheme[] = { normal_scheme[1], normal_scheme[1], normal_scheme[2] };
-        Clr selected_arrow_scheme[] = { selected_scheme[1], normal_scheme[1], normal_scheme[2] };
-
-        if(next_selected) {
-            normal_arrow_scheme[0] = normal_scheme[1];
-            normal_arrow_scheme[1] = selected_scheme[1];
-        }
-
-        // Tag Text
-        drw_setscheme(drw, selected ? selected_scheme : normal_scheme);
-        int text_box_width = BAR_ITEM_WIDTH - arrow_width;
-        int text_padding = 0;
-        if(i == 0) {
-            text_box_width += 5;
-            text_padding = 10;
-        } else {
-            text_padding = 2;
-        }
-
-		drw_text(drw, x, 0, text_box_width, bh, text_padding, tag_text, urg & 1 << i);
-
-        // Arrow
-        drw_setscheme(drw, selected ? selected_arrow_scheme : normal_arrow_scheme);
-		drw_text(drw, x + text_box_width, 0, arrow_width, bh, 0, arrow, 0);
-
-		x += arrow_width + text_box_width;
-	}
-
-	w = blw = TEXTW(m->ltsymbol);
-	drw_setscheme(drw, scheme[SchemeNorm]);
-	x = drw_text(drw, x - 10, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
-
-	if ((w = m->ww - tw - stw - x) > bh) {
-		if (m->sel) {
-			drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
-			drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
-			if (m->sel->isfloating)
-				drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
-		} else {
-			drw_setscheme(drw, scheme[SchemeNorm]);
-			drw_rect(drw, x, 0, w, bh, 1, 1);
-		}
-	}
-
-	drw_map(drw, m->barwin, 0, 0, m->ww - stw, bh);
+    rust_draw_bar(drw, m);
 }
 
 void

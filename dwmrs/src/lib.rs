@@ -1,9 +1,10 @@
 use x11::xlib::{
     Display, XSetErrorHandler, XErrorEvent, XSelectInput, XDefaultRootWindow,
     SubstructureRedirectMask, XSync, BadWindow, BadDrawable, BadMatch,
-    BadAccess, Window,
+    BadAccess, Window, Visual, Colormap, Drawable, GC,
 };
-use std::ffi::{c_int, c_uint, c_uchar, c_char, c_float, CString};
+use x11::xft::XftColor;
+use std::ffi::{c_int, c_uint, c_uchar, c_char, c_float, c_void, CString, CStr};
 
 const X_CONFIGURE_WINDOW: c_uchar = 12;
 const X_GRAB_BUTTON: c_uchar = 28;
@@ -13,6 +14,8 @@ const X_COPY_AREA: c_uchar = 62;
 const X_POLY_SEGMENT: c_uchar = 66;
 const X_POLY_TEXT_8: c_uchar = 74;
 const X_POLY_FILL_RECTANGLE: c_uchar = 70;
+
+const BAR_ITEM_WIDTH: u32 = 40;
 
 static mut DEFAULT_ERROR_HANDLER: Option<
     unsafe extern "C" fn(*mut Display, *mut XErrorEvent) -> c_int,
@@ -27,7 +30,55 @@ extern "C" {
         height: i32,
         interact: i32,
     );
+
+    fn drw_setscheme(drw: *mut Drw, scheme: *mut XftColor);
+
+    fn drw_rect(
+        drw: *mut Drw,
+        x: c_int,
+        y: c_int,
+        width: c_int,
+        height: c_int,
+        filled: c_int,
+        invert: c_int,
+    );
+
+    fn drw_text(
+        drw: *mut Drw,
+        x: c_int,
+        y: c_int,
+        w: c_uint,
+        h: c_uint,
+        lpad: c_uint,
+        text: *const c_char,
+        invert: c_int,
+    ) -> c_int;
+
+    fn drw_fontset_getwidth(drw: *mut Drw, text: *const c_char) -> c_uint;
+
+    fn drw_map(
+        drw: *mut Drw,
+        window: Window,
+        x: c_int,
+        y: c_int,
+        width: c_uint,
+        height: c_uint,
+    );
+
+    fn resizebarwin(monitor: *mut Monitor);
+
+    fn systraytomon(monitor: *mut Monitor) -> *mut Monitor;
+    fn getsystraywidth() -> c_uint;
+
+    static scheme: *mut *mut XftColor;
+    static bh: c_int;
+    static lrpad: c_int;
+
+    static selmon: *mut Monitor;
+    static stext: [c_char; 256];
 }
+
+static TAGS: [&str; 9] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 #[repr(C)]
 pub struct Client {
@@ -88,11 +139,6 @@ impl Client {
     }
 }
 
-// typedef struct {
-// 	const char *symbol;
-// 	void (*arrange)(Monitor *);
-// } Layout;
-
 #[repr(C)]
 pub struct Layout {
     symbol: *const c_char,
@@ -132,6 +178,22 @@ pub struct Monitor {
     next: *mut Monitor,
     bar_window: Window,
     lt: [*mut Layout; 2],
+}
+
+#[repr(C)]
+pub struct Drw {
+    width: c_int,
+    height: c_int,
+    display: *mut Display,
+    screen: c_int,
+    root: Window,
+    visual: *mut Visual,
+    depth: c_uint,
+    cmap: Colormap,
+    drawbale: Drawable,
+    gc: GC,
+    scheme: *mut XftColor,
+    font: *mut c_void,
 }
 
 #[no_mangle]
@@ -310,4 +372,186 @@ pub unsafe extern "C" fn rust_tile(monitor: *mut Monitor) {
         client = next_tiled((*client).next);
         index += 1;
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_draw_bar(
+    drw: *mut Drw,
+    monitor_ptr: *mut Monitor,
+) {
+    let monitor = &*monitor_ptr;
+
+    const SHOW_SYS_TRAY: bool = false;
+
+    let systray_width =
+        if SHOW_SYS_TRAY && monitor_ptr == systraytomon(monitor_ptr) {
+            getsystraywidth()
+        } else {
+            0
+        };
+
+    let mut urg = 0;
+    let mut client = monitor.clients;
+    while !client.is_null() {
+        if (*client).is_urgent > 0 {
+            urg |= (*client).tags;
+        }
+
+        client = (*client).next;
+    }
+
+    if monitor_ptr == selmon {
+        drw_setscheme(drw, *scheme.offset(0));
+
+        let tw = drw_fontset_getwidth(drw, stext.as_ptr()) + lrpad as u32;
+        let tw = tw as i32;
+        let tw = tw - lrpad / 2 + 2;
+
+        drw_text(
+            drw,
+            monitor.ww - tw - systray_width as i32,
+            0,
+            tw.try_into().unwrap(),
+            bh.try_into().unwrap(),
+            (lrpad / 2 - 2).try_into().unwrap(),
+            stext.as_ptr(),
+            0,
+        );
+    }
+
+    resizebarwin(monitor_ptr);
+
+    // TODO(patrik): Better way?
+    let arrow = CString::new("\u{e0b0}").unwrap();
+    let arrow_width =
+        drw_fontset_getwidth(drw, arrow.as_ptr() as *const c_char);
+
+    let mut x = 0;
+    for (index, tag) in TAGS.iter().enumerate() {
+        let tag = CString::new(*tag).unwrap();
+
+        let selected =
+            monitor.tagset[monitor.seltags as usize] & (1 << index) > 0;
+        let mut next_selected = false;
+        if (index + 1) < TAGS.len() {
+            next_selected = monitor.tagset[monitor.seltags as usize] &
+                (1 << (index + 1)) >
+                0;
+        }
+
+        let selected_scheme = *scheme.offset(1);
+        let normal_scheme = *scheme.offset(0);
+
+        let mut normal_arrow_scheme = [
+            *normal_scheme.offset(1),
+            *normal_scheme.offset(1),
+            *normal_scheme.offset(2),
+        ];
+
+        let mut selected_arrow_scheme = [
+            *selected_scheme.offset(1),
+            *normal_scheme.offset(1),
+            *normal_scheme.offset(2),
+        ];
+
+        if next_selected {
+            normal_arrow_scheme[0] = *normal_scheme.offset(1);
+            normal_arrow_scheme[1] = *selected_scheme.offset(1);
+        }
+
+        // Tag Text
+        drw_setscheme(
+            drw,
+            if selected {
+                selected_scheme
+            } else {
+                normal_scheme
+            },
+        );
+
+        let mut text_box_width = BAR_ITEM_WIDTH - arrow_width;
+        let text_padding;
+        if index == 0 {
+            text_box_width += 5;
+            text_padding = 10;
+        } else {
+            text_padding = 2;
+        }
+
+        // TODO(patrik): urg & 1 << i
+        drw_text(
+            drw,
+            x,
+            0,
+            text_box_width,
+            bh.try_into().unwrap(),
+            text_padding,
+            tag.as_ptr(),
+            (urg & 1 << index) as i32,
+        );
+
+        // Arrow
+        drw_setscheme(
+            drw,
+            if selected {
+                selected_arrow_scheme.as_mut_ptr()
+            } else {
+                normal_arrow_scheme.as_mut_ptr()
+            },
+        );
+
+        drw_text(
+            drw,
+            x + text_box_width as i32,
+            0,
+            arrow_width,
+            bh.try_into().unwrap(),
+            0,
+            arrow.as_ptr(),
+            0,
+        );
+
+        x += (arrow_width + text_box_width) as i32;
+    }
+
+    let w = drw_fontset_getwidth(
+        drw,
+        monitor.ltsymbol.as_ptr() as *const c_char,
+    ) + lrpad as u32;
+    drw_setscheme(drw, *scheme.offset(0));
+    let s = CStr::from_ptr(monitor.ltsymbol.as_ptr() as *const c_char);
+    let x = drw_text(
+        drw,
+        x - 8,
+        0,
+        w,
+        bh.try_into().unwrap(),
+        (lrpad / 2).try_into().unwrap(),
+        monitor.ltsymbol.as_ptr() as *const c_char,
+        0,
+    );
+
+    // let w = monitor.ww - tw - stw - x;
+
+    // if ((w = m->ww - tw - stw - x) > bh) {
+    // 	if (m->sel) {
+    // 		drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
+    // 		drw_text(drw, x, 0, w, bh, lrpad / 2, m->sel->name, 0);
+    // 		if (m->sel->isfloating)
+    // 			drw_rect(drw, x + boxs, boxs, boxw, boxw, m->sel->isfixed, 0);
+    // 	} else {
+    // 		drw_setscheme(drw, scheme[SchemeNorm]);
+    // 		drw_rect(drw, x, 0, w, bh, 1, 1);
+    // 	}
+    // }
+    //
+
+    drw_map(
+        drw,
+        monitor.bar_window,
+        0,
+        0,
+        monitor.ww.try_into().unwrap(),
+        bh.try_into().unwrap(),
+    );
 }
