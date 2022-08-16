@@ -3,7 +3,7 @@ use x11::xlib::{
     SubstructureRedirectMask, XSync, BadWindow, BadDrawable, BadMatch,
     BadAccess, Window, Visual, Colormap, Drawable, GC, XMoveResizeWindow,
 };
-use x11::xft::XftColor;
+use x11::xft::{XftColor, XftFont, FcPattern};
 use std::ffi::{c_int, c_uint, c_uchar, c_char, c_float, c_void, CString, CStr};
 
 const X_CONFIGURE_WINDOW: c_uchar = 12;
@@ -181,6 +181,15 @@ pub struct Monitor {
 }
 
 #[repr(C)]
+pub struct Font {
+    display: *mut Display,
+    height: c_uint,
+    x_font: *mut XftFont,
+    pattern: FcPattern,
+    next: *mut Font,
+}
+
+#[repr(C)]
 pub struct Drw {
     width: c_int,
     height: c_int,
@@ -193,7 +202,7 @@ pub struct Drw {
     drawbale: Drawable,
     gc: GC,
     scheme: *mut XftColor,
-    font: *mut c_void,
+    fonts: *mut Font,
 }
 
 #[no_mangle]
@@ -422,7 +431,7 @@ pub unsafe extern "C" fn rust_draw_bar(
         client = (*client).next;
     }
 
-    if monitor_ptr == selmon {
+    let tw = if monitor_ptr == selmon {
         drw_setscheme(drw, *scheme.offset(0));
 
         let tw = drw_fontset_getwidth(drw, stext.as_ptr()) + lrpad as u32;
@@ -439,7 +448,11 @@ pub unsafe extern "C" fn rust_draw_bar(
             stext.as_ptr(),
             0,
         );
-    }
+
+        tw
+    } else {
+        0
+    };
 
     resizebarwin(monitor_ptr);
 
@@ -553,7 +566,45 @@ pub unsafe extern "C" fn rust_draw_bar(
         0,
     );
 
-    // let w = monitor.ww - tw - stw - x;
+    let fonts = &*((*drw).fonts);
+
+    let boxs = fonts.height / 9;
+    let boxw = fonts.height / 6 + 2;
+
+    // TODO(patrik): Systray
+    let w = monitor.ww - tw /*- stw */ - x;
+
+    if w > bh {
+        if !monitor.sel.is_null() {
+            // TODO(patrik): Fix this
+            // drw_setscheme(drw, scheme[m == selmon ? SchemeSel : SchemeNorm]);
+            drw_setscheme(drw, *scheme.offset(0));
+            drw_text(
+                drw,
+                x,
+                0,
+                w.try_into().unwrap(),
+                bh.try_into().unwrap(),
+                (lrpad / 2).try_into().unwrap(),
+                (*monitor.sel).name.as_ptr(),
+                0,
+            );
+            if (*monitor.sel).is_floating > 0 {
+                drw_rect(
+                    drw,
+                    x + boxs as i32,
+                    boxs.try_into().unwrap(),
+                    boxw.try_into().unwrap(),
+                    boxw.try_into().unwrap(),
+                    (*monitor.sel).is_fixed,
+                    0,
+                );
+            }
+        } else {
+            drw_setscheme(drw, *scheme.offset(0));
+            drw_rect(drw, x, 0, w, bh, 1, 1);
+        }
+    }
 
     // if ((w = m->ww - tw - stw - x) > bh) {
     // 	if (m->sel) {
