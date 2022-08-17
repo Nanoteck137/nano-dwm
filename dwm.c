@@ -1521,9 +1521,7 @@ run(void)
             }
         }
 
-        printf("Running\n");
         usleep(100 * 1000);
-
 		// drawbars();
 	}
 }
