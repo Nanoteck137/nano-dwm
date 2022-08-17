@@ -409,7 +409,7 @@ pub unsafe extern "C" fn rust_resize_bar_window(
 pub unsafe extern "C" fn rust_draw_bar(
     drw: *mut Drw,
     monitor_ptr: *mut Monitor,
-) {
+) -> c_int {
     let monitor = &*monitor_ptr;
 
     const SHOW_SYS_TRAY: bool = false;
@@ -513,7 +513,6 @@ pub unsafe extern "C" fn rust_draw_bar(
             text_padding = 2;
         }
 
-        // TODO(patrik): urg & 1 << i
         drw_text(
             drw,
             x,
@@ -553,6 +552,7 @@ pub unsafe extern "C" fn rust_draw_bar(
         drw,
         monitor.ltsymbol.as_ptr() as *const c_char,
     ) + lrpad as u32;
+    let blw = w;
     drw_setscheme(drw, *scheme.offset(0));
     let s = CStr::from_ptr(monitor.ltsymbol.as_ptr() as *const c_char);
     let x = drw_text(
@@ -615,4 +615,6 @@ pub unsafe extern "C" fn rust_draw_bar(
         monitor.ww.try_into().unwrap(),
         bh.try_into().unwrap(),
     );
+
+    blw as i32
 }

@@ -13,5 +13,5 @@ void rust_test(Drw *drw, Clr *scheme);
 
 void rust_resize_bar_window(Display *display, Monitor *monitor);
 
-void rust_draw_bar(Drw *drw, Monitor *monitor);
+int rust_draw_bar(Drw *drw, Monitor *monitor);
 
