@@ -2,6 +2,7 @@ use x11::xlib::{
     Display, XSetErrorHandler, XErrorEvent, XSelectInput, XDefaultRootWindow,
     SubstructureRedirectMask, XSync, BadWindow, BadDrawable, BadMatch,
     BadAccess, Window, Visual, Colormap, Drawable, GC, XMoveResizeWindow,
+    XEvent, XRefreshKeyboardMapping, MappingKeyboard,
 };
 use x11::xft::{XftColor, XftFont, FcPattern};
 use std::ffi::{c_int, c_uint, c_uchar, c_char, c_float, c_void, CString, CStr};
@@ -69,6 +70,16 @@ extern "C" {
 
     fn systraytomon(monitor: *mut Monitor) -> *mut Monitor;
     fn getsystraywidth() -> c_uint;
+
+    fn updatesystray();
+
+    fn drawbar(monitor: *mut Monitor);
+
+    fn setfocus(client: *mut Client);
+
+    fn grabkeys();
+
+    fn wintomon(window: Window) -> *mut Monitor;
 
     static scheme: *mut *mut XftColor;
     static bh: c_int;
@@ -617,4 +628,37 @@ pub unsafe extern "C" fn rust_draw_bar(
     );
 
     blw as i32
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_expose_event(event: *mut XEvent) {
+    let ev = &(*event).expose;
+
+    let monitor = wintomon(ev.window);
+    if ev.count == 0 && !monitor.is_null() {
+        drawbar(monitor);
+
+        if monitor == selmon {
+            updatesystray();
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_focus_in_event(event: *mut XEvent) {
+    let ev = &(*event).focus_change;
+
+    if !(*selmon).sel.is_null() && ev.window != (*(*selmon).sel).window {
+        setfocus((*selmon).sel);
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_mapping_notify_event(event: *mut XEvent) {
+    let ev = &(*event).mapping;
+
+    XRefreshKeyboardMapping(std::ptr::addr_of_mut!((*event).mapping));
+    if ev.request == MappingKeyboard {
+        grabkeys();
+    }
 }

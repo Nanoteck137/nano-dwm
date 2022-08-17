@@ -15,3 +15,7 @@ void rust_resize_bar_window(Display *display, Monitor *monitor);
 
 int rust_draw_bar(Drw *drw, Monitor *monitor);
 
+void rust_expose_event(XEvent *event);
+void rust_focus_in_event(XEvent *event);
+void rust_mapping_notify_event(XEvent *event);
+
