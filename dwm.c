@@ -173,31 +173,52 @@ struct Systray {
 #include <dwmrs.h>
 
 /* function declarations */
+static void expose(XEvent *e);
+static void focusin(XEvent *e);
+static void mappingnotify(XEvent *e);
+
+static void checkotherwm(void);
+static int xerror(Display *dpy, XErrorEvent *ee);
+static int xerrorstart(Display *dpy, XErrorEvent *ee);
+
+void drawbar(Monitor *m);
+void resizebarwin(Monitor *m);
+static void tile(Monitor *);
+static void monocle(Monitor *m);
+static Client *nexttiled(Client *c);
+
+// NOTE(patrik): Easy to implement
+static void attach(Client *c);
+static void attachstack(Client *c);
+static void detach(Client *c);
+static void detachstack(Client *c);
+
+static Client *wintoclient(Window w);
+
+static void configure(Client *c);
+static void configurenotify(XEvent *e);
+static void destroynotify(XEvent *e);
+
+static void drawbars(void);
+
+static void view(const Arg *arg);
+static void zoom(const Arg *arg);
+
+// NOTE(patrik): Need work
+
 static void applyrules(Client *c);
 static int applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact);
 static void arrange(Monitor *m);
 static void arrangemon(Monitor *m);
-static void attach(Client *c);
-static void attachstack(Client *c);
 static void buttonpress(XEvent *e);
-static void checkotherwm(void);
 static void cleanup(void);
 static void cleanupmon(Monitor *mon);
 static void clientmessage(XEvent *e);
-static void configure(Client *c);
-static void configurenotify(XEvent *e);
 static void configurerequest(XEvent *e);
 static Monitor *createmon(void);
-static void destroynotify(XEvent *e);
-static void detach(Client *c);
-static void detachstack(Client *c);
 static Monitor *dirtomon(int dir);
-void drawbar(Monitor *m);
-static void drawbars(void);
 static void enternotify(XEvent *e);
-static void expose(XEvent *e);
 static void focus(Client *c);
-static void focusin(XEvent *e);
 static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
 static Atom getatomprop(Client *c, Atom prop);
@@ -211,19 +232,15 @@ static void incnmaster(const Arg *arg);
 static void keypress(XEvent *e);
 static void killclient(const Arg *arg);
 static void manage(Window w, XWindowAttributes *wa);
-static void mappingnotify(XEvent *e);
 static void maprequest(XEvent *e);
-static void monocle(Monitor *m);
 static void motionnotify(XEvent *e);
 static void movemouse(const Arg *arg);
-static Client *nexttiled(Client *c);
 static void pop(Client *);
 static void propertynotify(XEvent *e);
 static void quit(const Arg *arg);
 static Monitor *recttomon(int x, int y, int w, int h);
 static void removesystrayicon(Client *i);
 void resize(Client *c, int x, int y, int w, int h, int interact);
-void resizebarwin(Monitor *m);
 static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
 static void resizerequest(XEvent *e);
@@ -245,7 +262,6 @@ static void spawn(const Arg *arg);
 static Monitor *systraytomon(Monitor *m);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
-static void tile(Monitor *);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
 static void toggletag(const Arg *arg);
@@ -259,6 +275,7 @@ static void updateclientlist(void);
 static int updategeom(void);
 static void updatenumlockmask(void);
 static void updatesizehints(Client *c);
+// TODO(patrik): Remove?
 static void updatestatus(void);
 void updatesystray(void);
 static void updatesystrayicongeom(Client *i, int w, int h);
@@ -266,15 +283,10 @@ static void updatesystrayiconstate(Client *i, XPropertyEvent *ev);
 static void updatetitle(Client *c);
 static void updatewindowtype(Client *c);
 static void updatewmhints(Client *c);
-static void view(const Arg *arg);
-static Client *wintoclient(Window w);
 Monitor *wintomon(Window w);
 static Client *wintosystrayicon(Window w);
-static int xerror(Display *dpy, XErrorEvent *ee);
 static int xerrordummy(Display *dpy, XErrorEvent *ee);
-static int xerrorstart(Display *dpy, XErrorEvent *ee);
 static void xinitvisual();
-static void zoom(const Arg *arg);
 
 /* variables */
 const BAR_ITEM_WIDTH = 40;
@@ -490,7 +502,6 @@ buttonpress(XEvent *e)
 			click = ClkTagBar;
 			arg.ui = 1 << i;
 		} else if (ev->x < x + blw) {
-            printf("Click?\n");
 			click = ClkLtSymbol;
         }
 		else if (ev->x > selmon->ww - (int)TEXTW(stext) - getsystraywidth())
