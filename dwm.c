@@ -489,8 +489,10 @@ buttonpress(XEvent *e)
 		if (i < LENGTH(tags)) {
 			click = ClkTagBar;
 			arg.ui = 1 << i;
-		} else if (ev->x < x + blw)
+		} else if (ev->x < x + blw) {
+            printf("Click?\n");
 			click = ClkLtSymbol;
+        }
 		else if (ev->x > selmon->ww - (int)TEXTW(stext) - getsystraywidth())
 			click = ClkStatusText;
 		else
@@ -805,7 +807,7 @@ dirtomon(int dir)
 void
 drawbar(Monitor *m)
 {
-    rust_draw_bar(drw, m);
+    blw = rust_draw_bar(drw, m);
 }
 
 void
@@ -1511,9 +1513,16 @@ run(void)
 	XEvent ev;
 	/* main event loop */
 	XSync(dpy, False);
-	while (running && !XNextEvent(dpy, &ev)) {
-		if (handler[ev.type])
-			handler[ev.type](&ev); /* call handler */
+	while (running) {
+        while(XPending(dpy)) {
+            if(!XNextEvent(dpy, &ev)) {
+                if (handler[ev.type])
+                    handler[ev.type](&ev); /* call handler */
+            }
+        }
+
+        printf("Running\n");
+        usleep(100 * 1000);
 
 		// drawbars();
 	}
