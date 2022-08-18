@@ -186,13 +186,12 @@ void resizebarwin(Monitor *m);
 static void tile(Monitor *);
 static void monocle(Monitor *m);
 static Client *nexttiled(Client *c);
-
-// NOTE(patrik): Easy to implement
 static void attach(Client *c);
 static void attachstack(Client *c);
 static void detach(Client *c);
 static void detachstack(Client *c);
 
+// NOTE(patrik): Easy to implement
 static Client *wintoclient(Window w);
 
 static void configure(Client *c);
@@ -466,15 +465,13 @@ arrangemon(Monitor *m)
 void
 attach(Client *c)
 {
-	c->next = c->mon->clients;
-	c->mon->clients = c;
+    rust_attach(c);
 }
 
 void
 attachstack(Client *c)
 {
-	c->snext = c->mon->stack;
-	c->mon->stack = c;
+    rust_attach_stack(c);
 }
 
 void
@@ -780,24 +777,13 @@ destroynotify(XEvent *e)
 void
 detach(Client *c)
 {
-	Client **tc;
-
-	for (tc = &c->mon->clients; *tc && *tc != c; tc = &(*tc)->next);
-	*tc = c->next;
+    rust_detach(c);
 }
 
 void
 detachstack(Client *c)
 {
-	Client **tc, *t;
-
-	for (tc = &c->mon->stack; *tc && *tc != c; tc = &(*tc)->snext);
-	*tc = c->snext;
-
-	if (c == c->mon->sel) {
-		for (t = c->mon->stack; t && !ISVISIBLE(t); t = t->snext);
-		c->mon->sel = t;
-	}
+    rust_detach_stack(c);
 }
 
 Monitor *

@@ -631,6 +631,49 @@ pub unsafe extern "C" fn rust_draw_bar(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn rust_attach(client: *mut Client) {
+    (*client).next = (*(*client).monitor).clients;
+    (*(*client).monitor).clients = client;
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_attach_stack(client: *mut Client) {
+    (*client).stack_next = (*(*client).monitor).stack;
+    (*(*client).monitor).stack = client;
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_detach(client: *mut Client) {
+    let mut tc = &mut (*(*client).monitor).clients;
+
+    while !tc.is_null() && *tc != client {
+        tc = &mut (**tc).next;
+    }
+
+    *tc = (*client).next;
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_detach_stack(client: *mut Client) {
+    let mut tc = &mut (*(*client).monitor).stack;
+
+    while !tc.is_null() && *tc != client {
+        tc = &mut (**tc).stack_next;
+    }
+
+    *tc = (*client).stack_next;
+
+    if client == (*(*client).monitor).sel {
+        let mut new_client = (*(*client).monitor).stack;
+        while !new_client.is_null() && (*new_client).is_visable() {
+            new_client = (*new_client).next;
+        }
+
+        (*(*client).monitor).sel = new_client;
+    }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn rust_expose_event(event: *mut XEvent) {
     let ev = &(*event).expose;
 
