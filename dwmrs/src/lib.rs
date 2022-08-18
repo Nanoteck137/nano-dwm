@@ -2,7 +2,8 @@ use x11::xlib::{
     Display, XSetErrorHandler, XErrorEvent, XSelectInput, XDefaultRootWindow,
     SubstructureRedirectMask, XSync, BadWindow, BadDrawable, BadMatch,
     BadAccess, Window, Visual, Colormap, Drawable, GC, XMoveResizeWindow,
-    XEvent, XRefreshKeyboardMapping, MappingKeyboard,
+    XEvent, XRefreshKeyboardMapping, MappingKeyboard, XConfigureEvent,
+    XSendEvent, StructureNotifyMask, ConfigureNotify,
 };
 use x11::xft::{XftColor, XftFont, FcPattern};
 use std::ffi::{c_int, c_uint, c_uchar, c_char, c_float, c_void, CString, CStr};
@@ -692,13 +693,36 @@ pub unsafe extern "C" fn rust_window_to_client(
         monitor = (*monitor).next;
     }
 
-    // for (m = mons; m; m = m->next)
-    // 	for (c = m->clients; c; c = c->next)
-    // 		if (c->win == w)
-    // 			return c;
-    // return NULL;
-
     std::ptr::null_mut()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_configure(
+    display: *mut Display,
+    client: *mut Client,
+) {
+    let client = &*client;
+    let mut ce: XConfigureEvent = std::mem::zeroed();
+
+    ce.type_ = ConfigureNotify;
+    ce.display = display;
+    ce.event = client.window;
+    ce.window = client.window;
+    ce.x = client.x;
+    ce.y = client.y;
+    ce.width = client.width;
+    ce.height = client.height;
+    ce.border_width = client.border_width;
+    ce.above = 0;
+    ce.override_redirect = 0;
+
+    XSendEvent(
+        display,
+        client.window,
+        0,
+        StructureNotifyMask,
+        std::ptr::addr_of_mut!(ce) as *mut XEvent,
+    );
 }
 
 #[no_mangle]

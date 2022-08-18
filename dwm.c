@@ -647,20 +647,7 @@ clientmessage(XEvent *e)
 void
 configure(Client *c)
 {
-	XConfigureEvent ce;
-
-	ce.type = ConfigureNotify;
-	ce.display = dpy;
-	ce.event = c->win;
-	ce.window = c->win;
-	ce.x = c->x;
-	ce.y = c->y;
-	ce.width = c->w;
-	ce.height = c->h;
-	ce.border_width = c->bw;
-	ce.above = None;
-	ce.override_redirect = False;
-	XSendEvent(dpy, c->win, False, StructureNotifyMask, (XEvent *)&ce);
+    rust_configure(dpy, c);
 }
 
 void
