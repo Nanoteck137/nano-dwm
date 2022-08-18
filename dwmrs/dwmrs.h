@@ -20,6 +20,8 @@ void rust_attach_stack(Client *client);
 void rust_detach(Client *client);
 void rust_detach_stack(Client *client);
 
+Client *rust_window_to_client(Window window, Monitor *monitor_list);
+
 void rust_expose_event(XEvent *event);
 void rust_focus_in_event(XEvent *event);
 void rust_mapping_notify_event(XEvent *event);

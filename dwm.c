@@ -191,8 +191,9 @@ static void attachstack(Client *c);
 static void detach(Client *c);
 static void detachstack(Client *c);
 
-// NOTE(patrik): Easy to implement
 static Client *wintoclient(Window w);
+
+// NOTE(patrik): Easy to implement
 
 static void configure(Client *c);
 static void configurenotify(XEvent *e);
@@ -2336,14 +2337,7 @@ view(const Arg *arg)
 Client *
 wintoclient(Window w)
 {
-	Client *c;
-	Monitor *m;
-
-	for (m = mons; m; m = m->next)
-		for (c = m->clients; c; c = c->next)
-			if (c->win == w)
-				return c;
-	return NULL;
+    return rust_window_to_client(w, mons);
 }
 
 Client *

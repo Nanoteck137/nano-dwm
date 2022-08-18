@@ -674,6 +674,34 @@ pub unsafe extern "C" fn rust_detach_stack(client: *mut Client) {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn rust_window_to_client(
+    window: Window,
+    monitor_list: *mut Monitor,
+) -> *mut Client {
+    let mut monitor = monitor_list;
+    while !monitor.is_null() {
+        let mut client = (*monitor).clients;
+        while !client.is_null() {
+            if (*client).window == window {
+                return client;
+            }
+
+            client = (*client).next;
+        }
+
+        monitor = (*monitor).next;
+    }
+
+    // for (m = mons; m; m = m->next)
+    // 	for (c = m->clients; c; c = c->next)
+    // 		if (c->win == w)
+    // 			return c;
+    // return NULL;
+
+    std::ptr::null_mut()
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn rust_expose_event(event: *mut XEvent) {
     let ev = &(*event).expose;
 
