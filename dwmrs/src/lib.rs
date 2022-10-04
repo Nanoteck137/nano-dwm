@@ -520,9 +520,9 @@ pub unsafe extern "C" fn rust_draw_bar(
         let text_padding;
         if index == 0 {
             text_box_width += 5;
-            text_padding = 10;
+            text_padding = 13;
         } else {
-            text_padding = 2;
+            text_padding = 8;
         }
 
         drw_text(
