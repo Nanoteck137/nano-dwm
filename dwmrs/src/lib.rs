@@ -26,10 +26,14 @@ static mut DEFAULT_ERROR_HANDLER: Option<
 extern "C" {
     static scheme: *mut *mut XftColor;
     static bh: c_int;
+    static mut blw: c_int;
     static lrpad: c_int;
 
     static selmon: *mut Monitor;
+    static mons: *mut Monitor;
     static stext: [c_char; 256];
+
+    static drw: *mut Drw;
 
     fn resize(
         client: *mut Client,
@@ -80,8 +84,6 @@ extern "C" {
     fn getsystraywidth() -> c_uint;
 
     fn updatesystray();
-
-    fn drawbar(monitor: *mut Monitor);
 
     fn setfocus(client: *mut Client);
 
@@ -434,10 +436,7 @@ pub unsafe extern "C" fn rust_resize_bar_window(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rust_draw_bar(
-    drw: *mut Drw,
-    monitor_ptr: *mut Monitor,
-) -> c_int {
+pub unsafe extern "C" fn rust_draw_bar(monitor_ptr: *mut Monitor) {
     let monitor = &*monitor_ptr;
 
     const SHOW_SYS_TRAY: bool = false;
@@ -580,7 +579,9 @@ pub unsafe extern "C" fn rust_draw_bar(
         drw,
         monitor.ltsymbol.as_ptr() as *const c_char,
     ) + lrpad as u32;
-    let blw = w;
+
+    blw = w as i32;
+
     drw_setscheme(drw, *scheme.offset(0));
     let s = CStr::from_ptr(monitor.ltsymbol.as_ptr() as *const c_char);
     let x = drw_text(
@@ -643,9 +644,23 @@ pub unsafe extern "C" fn rust_draw_bar(
         monitor.ww.try_into().unwrap(),
         bh.try_into().unwrap(),
     );
-
-    blw as i32
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_draw_bars() {
+    let mut monitor = mons;
+    while !monitor.is_null() {
+        rust_draw_bar(monitor);
+        monitor = (*monitor).next;
+    }
+}
+
+// void drawbars(void) {
+//   Monitor *m;
+//
+//   for (m = mons; m; m = m->next)
+//     drawbar(m);
+// }
 
 #[no_mangle]
 pub unsafe extern "C" fn rust_attach(client: *mut Client) {
@@ -747,7 +762,7 @@ pub unsafe extern "C" fn rust_expose_event(event: *mut XEvent) {
 
     let monitor = wintomon(ev.window);
     if ev.count == 0 && !monitor.is_null() {
-        drawbar(monitor);
+        rust_draw_bar(monitor);
 
         if monitor == selmon {
             updatesystray();

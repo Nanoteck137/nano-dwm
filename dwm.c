@@ -208,7 +208,6 @@ static void checkotherwm(void);
 static int xerror(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
 
-void drawbar(Monitor *m);
 void resizebarwin(Monitor *m);
 static void tile(Monitor *);
 static void monocle(Monitor *m);
@@ -222,15 +221,16 @@ static Client *wintoclient(Window w);
 
 static void view(const Arg *arg);
 
-// NOTE(patrik): Easy to implement
-
-static void configure(Client *c);
-static void configurenotify(XEvent *e);
-static void destroynotify(XEvent *e);
+static void zoom(const Arg *arg);
 
 static void drawbars(void);
 
-static void zoom(const Arg *arg);
+static void configure(Client *c);
+
+// NOTE(patrik): Easy to implement
+
+static void configurenotify(XEvent *e);
+static void destroynotify(XEvent *e);
 
 // NOTE(patrik): Need work
 
@@ -352,7 +352,7 @@ static int running = 1;
 static Cur *cursor[CurLast];
 Clr **scheme;
 static Display *dpy;
-static Drw *drw;
+Drw *drw;
 Monitor *mons, *selmon;
 static Window root, wmcheckwin;
 
@@ -790,14 +790,7 @@ Monitor *dirtomon(int dir) {
   return m;
 }
 
-void drawbar(Monitor *m) { blw = rust_draw_bar(drw, m); }
-
-void drawbars(void) {
-  Monitor *m;
-
-  for (m = mons; m; m = m->next)
-    drawbar(m);
-}
+void drawbars(void) { rust_draw_bars(); }
 
 void enternotify(XEvent *e) {
   Client *c;
@@ -822,7 +815,7 @@ void expose(XEvent *e) {
   XExposeEvent *ev = &e->xexpose;
 
   if (ev->count == 0 && (m = wintomon(ev->window))) {
-    drawbar(m);
+    rust_draw_bar(m);
     if (m == selmon)
       updatesystray();
   }
@@ -1291,7 +1284,7 @@ void propertynotify(XEvent *e) {
     if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
       updatetitle(c);
       if (c == c->mon->sel)
-        drawbar(c->mon);
+        rust_draw_bar(c->mon);
     }
     if (ev->atom == netatom[NetWMWindowType])
       updatewindowtype(c);
@@ -1424,7 +1417,7 @@ void restack(Monitor *m) {
   XEvent ev;
   XWindowChanges wc;
 
-  drawbar(m);
+  rust_draw_bar(m);
   if (!m->sel)
     return;
   if (m->sel->isfloating || !m->lt[m->sellt]->arrange)
@@ -1586,7 +1579,7 @@ void setlayout(const Arg *arg) {
   if (selmon->sel)
     arrange(selmon);
   else
-    drawbar(selmon);
+    rust_draw_bar(selmon);
 }
 
 /* arg > 1.0 will set mfact absolutely */
@@ -2045,7 +2038,7 @@ void updatesizehints(Client *c) {
 void updatestatus(void) {
   if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
     strcpy(stext, "nano-dwm-" VERSION);
-  drawbar(selmon);
+  rust_draw_bar(selmon);
   updatesystray();
 }
 

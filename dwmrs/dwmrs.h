@@ -13,7 +13,8 @@ void rust_test(Drw *drw, Clr *scheme);
 
 void rust_resize_bar_window(Display *display, Monitor *monitor);
 
-int rust_draw_bar(Drw *drw, Monitor *monitor);
+void rust_draw_bar(Monitor *monitor);
+void rust_draw_bars();
 
 void rust_attach(Client *client);
 void rust_attach_stack(Client *client);
