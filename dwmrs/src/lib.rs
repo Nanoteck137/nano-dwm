@@ -3,10 +3,14 @@ use x11::xlib::{
     SubstructureRedirectMask, XSync, BadWindow, BadDrawable, BadMatch,
     BadAccess, Window, Visual, Colormap, Drawable, GC, XMoveResizeWindow,
     XEvent, XRefreshKeyboardMapping, MappingKeyboard, XConfigureEvent,
-    XSendEvent, StructureNotifyMask, ConfigureNotify,
+    XSendEvent, StructureNotifyMask, ConfigureNotify, XPending, XNextEvent,
+    ButtonPress, ClientMessage, ConfigureRequest, DestroyNotify, EnterNotify,
+    Expose, FocusIn, KeyPress, MappingNotify, MapRequest, MotionNotify,
+    PropertyNotify, ResizeRequest, UnmapNotify,
 };
 use x11::xft::{XftColor, XftFont, FcPattern};
 use std::ffi::{c_int, c_uint, c_uchar, c_char, c_float, c_void, CString, CStr};
+use std::time::Duration;
 
 const X_CONFIGURE_WINDOW: c_uchar = 12;
 const X_GRAB_BUTTON: c_uchar = 28;
@@ -29,9 +33,13 @@ extern "C" {
     static mut blw: c_int;
     static lrpad: c_int;
 
+    static dpy: *mut Display;
+
     static selmon: *mut Monitor;
     static mons: *mut Monitor;
     static stext: [c_char; 256];
+
+    static mut running: c_int;
 
     static drw: *mut Drw;
 
@@ -97,6 +105,19 @@ extern "C" {
     fn nexttiled(client: *mut Client) -> *mut Client;
 
     fn pop(client: *mut Client);
+
+    fn buttonpress(event: *mut XEvent);
+    fn clientmessage(event: *mut XEvent);
+    fn configurerequest(event: *mut XEvent);
+    fn configurenotify(event: *mut XEvent);
+    fn destroynotify(event: *mut XEvent);
+    fn enternotify(event: *mut XEvent);
+    fn keypress(event: *mut XEvent);
+    fn maprequest(event: *mut XEvent);
+    fn motionnotify(event: *mut XEvent);
+    fn propertynotify(event: *mut XEvent);
+    fn resizerequest(event: *mut XEvent);
+    fn unmapnotify(event: *mut XEvent);
 }
 
 static TAGS: [&str; 9] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -826,4 +847,61 @@ pub unsafe extern "C" fn rust_zoom(_arg: *const Arg) {
     }
 
     pop(client);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_run() {
+    XSync(dpy, 0);
+
+    while running > 0 {
+        while XPending(dpy) > 0 {
+            let mut event: XEvent = std::mem::zeroed();
+            if XNextEvent(dpy, std::ptr::addr_of_mut!(event)) <= 0 {
+                match event.type_ {
+                    ButtonPress => buttonpress(std::ptr::addr_of_mut!(event)),
+                    ClientMessage => {
+                        clientmessage(std::ptr::addr_of_mut!(event))
+                    }
+                    ConfigureRequest => {
+                        configurerequest(std::ptr::addr_of_mut!(event))
+                    }
+                    ConfigureNotify => {
+                        configurenotify(std::ptr::addr_of_mut!(event))
+                    }
+                    DestroyNotify => {
+                        destroynotify(std::ptr::addr_of_mut!(event))
+                    }
+                    EnterNotify => enternotify(std::ptr::addr_of_mut!(event)),
+                    Expose => rust_expose_event(std::ptr::addr_of_mut!(event)),
+                    FocusIn => {
+                        rust_focus_in_event(std::ptr::addr_of_mut!(event))
+                    }
+                    KeyPress => keypress(std::ptr::addr_of_mut!(event)),
+
+                    MappingNotify => rust_mapping_notify_event(
+                        std::ptr::addr_of_mut!(event),
+                    ),
+                    MapRequest => maprequest(std::ptr::addr_of_mut!(event)),
+
+                    MotionNotify => {
+                        motionnotify(std::ptr::addr_of_mut!(event))
+                    }
+                    PropertyNotify => {
+                        propertynotify(std::ptr::addr_of_mut!(event))
+                    }
+                    ResizeRequest => {
+                        resizerequest(std::ptr::addr_of_mut!(event))
+                    }
+                    UnmapNotify => unmapnotify(std::ptr::addr_of_mut!(event)),
+
+                    _ => {
+                        // println!("No handler for {}", event.type_);
+                    }
+                }
+            }
+        }
+
+        rust_draw_bars();
+        std::thread::sleep(Duration::from_millis(100));
+    }
 }

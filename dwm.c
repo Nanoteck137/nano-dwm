@@ -229,8 +229,8 @@ static void configure(Client *c);
 
 // NOTE(patrik): Easy to implement
 
-static void configurenotify(XEvent *e);
-static void destroynotify(XEvent *e);
+void configurenotify(XEvent *e);
+void destroynotify(XEvent *e);
 
 // NOTE(patrik): Need work
 
@@ -239,14 +239,14 @@ static int applysizehints(Client *c, int *x, int *y, int *w, int *h,
                           int interact);
 void arrange(Monitor *m);
 static void arrangemon(Monitor *m);
-static void buttonpress(XEvent *e);
+void buttonpress(XEvent *e);
 static void cleanup(void);
 static void cleanupmon(Monitor *mon);
-static void clientmessage(XEvent *e);
-static void configurerequest(XEvent *e);
+void clientmessage(XEvent *e);
+void configurerequest(XEvent *e);
 static Monitor *createmon(void);
 static Monitor *dirtomon(int dir);
-static void enternotify(XEvent *e);
+void enternotify(XEvent *e);
 void focus(Client *c);
 static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
@@ -258,21 +258,21 @@ static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
 void grabkeys(void);
 static void incnmaster(const Arg *arg);
-static void keypress(XEvent *e);
+void keypress(XEvent *e);
 static void killclient(const Arg *arg);
 static void manage(Window w, XWindowAttributes *wa);
-static void maprequest(XEvent *e);
-static void motionnotify(XEvent *e);
+void maprequest(XEvent *e);
+void motionnotify(XEvent *e);
 static void movemouse(const Arg *arg);
 void pop(Client *);
-static void propertynotify(XEvent *e);
+void propertynotify(XEvent *e);
 static void quit(const Arg *arg);
 static Monitor *recttomon(int x, int y, int w, int h);
 static void removesystrayicon(Client *i);
 void resize(Client *c, int x, int y, int w, int h, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
-static void resizerequest(XEvent *e);
+void resizerequest(XEvent *e);
 static void restack(Monitor *m);
 static void run(void);
 static void scan(void);
@@ -298,7 +298,7 @@ static void toggletag(const Arg *arg);
 static void toggleview(const Arg *arg);
 static void unfocus(Client *c, int setfocus);
 static void unmanage(Client *c, int destroyed);
-static void unmapnotify(XEvent *e);
+void unmapnotify(XEvent *e);
 static void updatebarpos(Monitor *m);
 static void updatebars(void);
 static void updateclientlist(void);
@@ -348,10 +348,10 @@ static void (*handler[LASTEvent])(XEvent *) = {
     [ResizeRequest] = resizerequest,
     [UnmapNotify] = unmapnotify};
 static Atom wmatom[WMLast], netatom[NetLast], xatom[XLast];
-static int running = 1;
+int running = 1;
 static Cur *cursor[CurLast];
 Clr **scheme;
-static Display *dpy;
+Display *dpy;
 Drw *drw;
 Monitor *mons, *selmon;
 static Window root, wmcheckwin;
@@ -1436,22 +1436,24 @@ void restack(Monitor *m) {
     ;
 }
 
-void run(void) {
-  XEvent ev;
-  /* main event loop */
-  XSync(dpy, False);
-  while (running) {
-    while (XPending(dpy)) {
-      if (!XNextEvent(dpy, &ev)) {
-        if (handler[ev.type])
-          handler[ev.type](&ev); /* call handler */
-      }
-    }
+// void run(void) {
+//   XEvent ev;
+//   /* main event loop */
+//   XSync(dpy, False);
+//   while (running) {
+//     while (XPending(dpy)) {
+//       if (!XNextEvent(dpy, &ev)) {
+//         if (handler[ev.type])
+//           handler[ev.type](&ev); /* call handler */
+//       }
+//     }
+//
+//     drawbars();
+//     usleep(100 * 1000);
+//   }
+// }
 
-    drawbars();
-    usleep(100 * 1000);
-  }
-}
+void run(void) { rust_run(); }
 
 void scan(void) {
   unsigned int i, num;

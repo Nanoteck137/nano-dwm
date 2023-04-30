@@ -31,3 +31,5 @@ void rust_mapping_notify_event(XEvent *event);
 
 void rust_view(const Arg *arg);
 void rust_zoom(const Arg *arg);
+
+void rust_run();
