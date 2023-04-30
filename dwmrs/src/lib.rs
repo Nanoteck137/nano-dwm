@@ -6,10 +6,14 @@ use x11::xlib::{
     XSendEvent, StructureNotifyMask, ConfigureNotify, XPending, XNextEvent,
     ButtonPress, ClientMessage, ConfigureRequest, DestroyNotify, EnterNotify,
     Expose, FocusIn, KeyPress, MappingNotify, MapRequest, MotionNotify,
-    PropertyNotify, ResizeRequest, UnmapNotify,
+    PropertyNotify, ResizeRequest, UnmapNotify, XQueryTree,
+    XGetWindowAttributes, XWindowAttributes, XGetTransientForHint, IsViewable,
+    XFree,
 };
 use x11::xft::{XftColor, XftFont, FcPattern};
-use std::ffi::{c_int, c_uint, c_uchar, c_char, c_float, c_void, CString, CStr};
+use std::ffi::{
+    c_int, c_uint, c_uchar, c_char, c_float, c_void, CString, CStr, c_long,
+};
 use std::time::Duration;
 
 const X_CONFIGURE_WINDOW: c_uchar = 12;
@@ -34,6 +38,7 @@ extern "C" {
     static lrpad: c_int;
 
     static dpy: *mut Display;
+    static root: Window;
 
     static selmon: *mut Monitor;
     static mons: *mut Monitor;
@@ -118,6 +123,10 @@ extern "C" {
     fn propertynotify(event: *mut XEvent);
     fn resizerequest(event: *mut XEvent);
     fn unmapnotify(event: *mut XEvent);
+
+    fn getstate(w: Window) -> c_long;
+
+    fn manage(w: Window, wa: *mut XWindowAttributes);
 }
 
 static TAGS: [&str; 9] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -905,3 +914,102 @@ pub unsafe extern "C" fn rust_run() {
         std::thread::sleep(Duration::from_millis(100));
     }
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_scan() {
+    let mut d1: Window = 0;
+    let mut d2: Window = 0;
+    let mut windows: *mut Window = std::ptr::null_mut();
+    let mut num = 0;
+
+    if XQueryTree(
+        dpy,
+        root,
+        std::ptr::addr_of_mut!(d1),
+        std::ptr::addr_of_mut!(d2),
+        std::ptr::addr_of_mut!(windows),
+        std::ptr::addr_of_mut!(num),
+    ) > 0
+    {
+        for i in 0..num {
+            let win = *windows.offset(i as isize);
+            let mut wa: XWindowAttributes = std::mem::zeroed();
+            if XGetWindowAttributes(dpy, win, std::ptr::addr_of_mut!(wa)) <= 0 ||
+                wa.override_redirect > 0 ||
+                XGetTransientForHint(dpy, win, std::ptr::addr_of_mut!(d1)) >
+                    0
+            {
+                continue;
+            }
+
+            // 2 == IconicState
+            if wa.map_state == IsViewable || getstate(win) == 2 {
+                manage(win, std::ptr::addr_of_mut!(wa));
+            }
+        }
+
+        for i in 0..num {
+            let win = *windows.offset(i as isize);
+            let mut wa: XWindowAttributes = std::mem::zeroed();
+
+            if XGetWindowAttributes(dpy, win, std::ptr::addr_of_mut!(wa)) <= 0
+            {
+                continue;
+            }
+            if XGetTransientForHint(dpy, win, std::ptr::addr_of_mut!(d1)) > 0 &&
+                (wa.map_state == IsViewable || getstate(win) == 2)
+            {
+                manage(win, std::ptr::addr_of_mut!(wa));
+            }
+        }
+
+        if !windows.is_null() {
+            XFree(windows as *mut c_void);
+        }
+    }
+
+    //   if (XQueryTree(dpy, root, &d1, &d2, &wins, &num)) {
+    //     for (i = 0; i < num; i++) {
+    //       if (!XGetWindowAttributes(dpy, wins[i], &wa) || wa.override_redirect ||
+    //           XGetTransientForHint(dpy, wins[i], &d1))
+    //         continue;
+    //       if (wa.map_state == IsViewable || getstate(wins[i]) == IconicState)
+    //         manage(wins[i], &wa);
+    //     }
+    //     for (i = 0; i < num; i++) { /* now the transients */
+    //       if (!XGetWindowAttributes(dpy, wins[i], &wa))
+    //         continue;
+    //       if (XGetTransientForHint(dpy, wins[i], &d1) &&
+    //           (wa.map_state == IsViewable || getstate(wins[i]) == IconicState))
+    //         manage(wins[i], &wa);
+    //     }
+    //     if (wins)
+    //       XFree(wins);
+    //   }
+    //
+}
+
+// void scan(void) {
+//   unsigned int i, num;
+//   Window d1, d2, *wins = NULL;
+//   XWindowAttributes wa;
+//
+//   if (XQueryTree(dpy, root, &d1, &d2, &wins, &num)) {
+//     for (i = 0; i < num; i++) {
+//       if (!XGetWindowAttributes(dpy, wins[i], &wa) || wa.override_redirect ||
+//           XGetTransientForHint(dpy, wins[i], &d1))
+//         continue;
+//       if (wa.map_state == IsViewable || getstate(wins[i]) == IconicState)
+//         manage(wins[i], &wa);
+//     }
+//     for (i = 0; i < num; i++) { /* now the transients */
+//       if (!XGetWindowAttributes(dpy, wins[i], &wa))
+//         continue;
+//       if (XGetTransientForHint(dpy, wins[i], &d1) &&
+//           (wa.map_state == IsViewable || getstate(wins[i]) == IconicState))
+//         manage(wins[i], &wa);
+//     }
+//     if (wins)
+//       XFree(wins);
+//   }
+// }

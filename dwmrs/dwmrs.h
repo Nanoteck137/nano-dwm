@@ -33,3 +33,4 @@ void rust_view(const Arg *arg);
 void rust_zoom(const Arg *arg);
 
 void rust_run();
+void rust_scan();

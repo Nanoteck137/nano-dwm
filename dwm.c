@@ -252,7 +252,7 @@ static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
 static Atom getatomprop(Client *c, Atom prop);
 static int getrootptr(int *x, int *y);
-static long getstate(Window w);
+long getstate(Window w);
 static unsigned int getsystraywidth();
 static int gettextprop(Window w, Atom atom, char *text, unsigned int size);
 static void grabbuttons(Client *c, int focused);
@@ -260,7 +260,7 @@ void grabkeys(void);
 static void incnmaster(const Arg *arg);
 void keypress(XEvent *e);
 static void killclient(const Arg *arg);
-static void manage(Window w, XWindowAttributes *wa);
+void manage(Window w, XWindowAttributes *wa);
 void maprequest(XEvent *e);
 void motionnotify(XEvent *e);
 static void movemouse(const Arg *arg);
@@ -354,7 +354,7 @@ Clr **scheme;
 Display *dpy;
 Drw *drw;
 Monitor *mons, *selmon;
-static Window root, wmcheckwin;
+Window root, wmcheckwin;
 
 static int useargb = 0;
 static Visual *visual;
@@ -1436,24 +1436,32 @@ void restack(Monitor *m) {
     ;
 }
 
-// void run(void) {
-//   XEvent ev;
-//   /* main event loop */
-//   XSync(dpy, False);
-//   while (running) {
-//     while (XPending(dpy)) {
-//       if (!XNextEvent(dpy, &ev)) {
-//         if (handler[ev.type])
-//           handler[ev.type](&ev); /* call handler */
-//       }
-//     }
+void run(void) { rust_run(); }
+
+// void scan(void) {
+//   unsigned int i, num;
+//   Window d1, d2, *wins = NULL;
+//   XWindowAttributes wa;
 //
-//     drawbars();
-//     usleep(100 * 1000);
+//   if (XQueryTree(dpy, root, &d1, &d2, &wins, &num)) {
+//     for (i = 0; i < num; i++) {
+//       if (!XGetWindowAttributes(dpy, wins[i], &wa) || wa.override_redirect ||
+//           XGetTransientForHint(dpy, wins[i], &d1))
+//         continue;
+//       if (wa.map_state == IsViewable || getstate(wins[i]) == IconicState)
+//         manage(wins[i], &wa);
+//     }
+//     for (i = 0; i < num; i++) { /* now the transients */
+//       if (!XGetWindowAttributes(dpy, wins[i], &wa))
+//         continue;
+//       if (XGetTransientForHint(dpy, wins[i], &d1) &&
+//           (wa.map_state == IsViewable || getstate(wins[i]) == IconicState))
+//         manage(wins[i], &wa);
+//     }
+//     if (wins)
+//       XFree(wins);
 //   }
 // }
-
-void run(void) { rust_run(); }
 
 void scan(void) {
   unsigned int i, num;
