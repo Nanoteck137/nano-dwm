@@ -28,3 +28,5 @@ void rust_expose_event(XEvent *event);
 void rust_focus_in_event(XEvent *event);
 void rust_mapping_notify_event(XEvent *event);
 
+void rust_view(const Arg *arg);
+void rust_zoom(const Arg *arg);

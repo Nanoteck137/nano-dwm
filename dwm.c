@@ -212,13 +212,15 @@ void drawbar(Monitor *m);
 void resizebarwin(Monitor *m);
 static void tile(Monitor *);
 static void monocle(Monitor *m);
-static Client *nexttiled(Client *c);
+Client *nexttiled(Client *c);
 static void attach(Client *c);
 static void attachstack(Client *c);
 static void detach(Client *c);
 static void detachstack(Client *c);
 
 static Client *wintoclient(Window w);
+
+static void view(const Arg *arg);
 
 // NOTE(patrik): Easy to implement
 
@@ -228,7 +230,6 @@ static void destroynotify(XEvent *e);
 
 static void drawbars(void);
 
-static void view(const Arg *arg);
 static void zoom(const Arg *arg);
 
 // NOTE(patrik): Need work
@@ -236,7 +237,7 @@ static void zoom(const Arg *arg);
 static void applyrules(Client *c);
 static int applysizehints(Client *c, int *x, int *y, int *w, int *h,
                           int interact);
-static void arrange(Monitor *m);
+void arrange(Monitor *m);
 static void arrangemon(Monitor *m);
 static void buttonpress(XEvent *e);
 static void cleanup(void);
@@ -246,7 +247,7 @@ static void configurerequest(XEvent *e);
 static Monitor *createmon(void);
 static Monitor *dirtomon(int dir);
 static void enternotify(XEvent *e);
-static void focus(Client *c);
+void focus(Client *c);
 static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
 static Atom getatomprop(Client *c, Atom prop);
@@ -263,7 +264,7 @@ static void manage(Window w, XWindowAttributes *wa);
 static void maprequest(XEvent *e);
 static void motionnotify(XEvent *e);
 static void movemouse(const Arg *arg);
-static void pop(Client *);
+void pop(Client *);
 static void propertynotify(XEvent *e);
 static void quit(const Arg *arg);
 static Monitor *recttomon(int x, int y, int w, int h);
@@ -2197,15 +2198,17 @@ void updatewmhints(Client *c) {
   }
 }
 
-void view(const Arg *arg) {
-  if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
-    return;
-  selmon->seltags ^= 1; /* toggle sel tagset */
-  if (arg->ui & TAGMASK)
-    selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
-  focus(NULL);
-  arrange(selmon);
-}
+// void view(const Arg *arg) {
+//   if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
+//     return;
+//   selmon->seltags ^= 1; /* toggle sel tagset */
+//   if (arg->ui & TAGMASK)
+//     selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+//   focus(NULL);
+//   arrange(selmon);
+// }
+
+void view(const Arg *arg) { rust_view(arg); }
 
 Client *wintoclient(Window w) { return rust_window_to_client(w, mons); }
 
@@ -2312,17 +2315,7 @@ void xinitvisual() {
   }
 }
 
-void zoom(const Arg *arg) {
-  Client *c = selmon->sel;
-
-  if (!selmon->lt[selmon->sellt]->arrange ||
-      (selmon->sel && selmon->sel->isfloating))
-    return;
-  if (c == nexttiled(selmon->clients))
-    if (!c || !(c = nexttiled(c->next)))
-      return;
-  pop(c);
-}
+void zoom(const Arg *arg) { rust_zoom(arg); }
 
 int main(int argc, char *argv[]) {
   if (argc == 2 && !strcmp("-v", argv[1]))

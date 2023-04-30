@@ -24,6 +24,13 @@ static mut DEFAULT_ERROR_HANDLER: Option<
 > = None;
 
 extern "C" {
+    static scheme: *mut *mut XftColor;
+    static bh: c_int;
+    static lrpad: c_int;
+
+    static selmon: *mut Monitor;
+    static stext: [c_char; 256];
+
     fn resize(
         client: *mut Client,
         x: i32,
@@ -82,15 +89,16 @@ extern "C" {
 
     fn wintomon(window: Window) -> *mut Monitor;
 
-    static scheme: *mut *mut XftColor;
-    static bh: c_int;
-    static lrpad: c_int;
+    fn focus(client: *mut Client);
+    fn arrange(monitor: *mut Monitor);
 
-    static selmon: *mut Monitor;
-    static stext: [c_char; 256];
+    fn nexttiled(client: *mut Client) -> *mut Client;
+
+    fn pop(client: *mut Client);
 }
 
 static TAGS: [&str; 9] = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+static TAGMASK: u32 = (1 << TAGS.len() as u32) - 1;
 
 #[repr(C)]
 pub struct Client {
@@ -215,6 +223,14 @@ pub struct Drw {
     gc: GC,
     scheme: *mut XftColor,
     fonts: *mut Font,
+}
+
+#[repr(C)]
+pub union Arg {
+    i: c_int,
+    ui: c_uint,
+    f: c_float,
+    v: *const c_void,
 }
 
 #[no_mangle]
@@ -756,4 +772,43 @@ pub unsafe extern "C" fn rust_mapping_notify_event(event: *mut XEvent) {
     if ev.request == MappingKeyboard {
         grabkeys();
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_view(arg: *const Arg) {
+    let arg = &*arg;
+
+    if arg.ui & TAGMASK == (*selmon).tagset[(*selmon).seltags as usize] {
+        return;
+    }
+
+    (*selmon).seltags ^= 1;
+    if arg.ui & TAGMASK > 0 {
+        (*selmon).tagset[(*selmon).seltags as usize] = arg.ui & TAGMASK;
+    }
+
+    focus(std::ptr::null_mut());
+    arrange(selmon);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_zoom(_arg: *const Arg) {
+    let mut client = (*selmon).sel;
+
+    let sellt = (*selmon).sellt as usize;
+    let first = ((*(*selmon).lt[sellt]).arrange as *const c_void).is_null();
+    if first || ((*selmon).sel.is_null() && (*(*selmon).sel).is_floating > 0) {
+        return;
+    }
+
+    if client == nexttiled((*selmon).clients) {
+        if !client.is_null() {
+            client = nexttiled((*client).next);
+            if client.is_null() {
+                return;
+            }
+        }
+    }
+
+    pop(client);
 }
