@@ -11,7 +11,7 @@ void rust_tile(Monitor *monitor);
 
 void rust_test(Drw *drw, Clr *scheme);
 
-void rust_resize_bar_window(Display *display, Monitor *monitor);
+void rust_resize_bar_window(Monitor *monitor);
 
 void rust_draw_bar(Monitor *monitor);
 void rust_draw_bars();

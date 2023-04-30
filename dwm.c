@@ -208,22 +208,12 @@ static void checkotherwm(void);
 static int xerror(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
 
-void resizebarwin(Monitor *m);
 static void tile(Monitor *);
-static void monocle(Monitor *m);
 Client *nexttiled(Client *c);
-static void attach(Client *c);
-static void attachstack(Client *c);
-static void detach(Client *c);
-static void detachstack(Client *c);
 
 static Client *wintoclient(Window w);
 
-static void view(const Arg *arg);
-
 static void zoom(const Arg *arg);
-
-static void drawbars(void);
 
 static void configure(Client *c);
 
@@ -274,11 +264,8 @@ static void resizeclient(Client *c, int x, int y, int w, int h);
 static void resizemouse(const Arg *arg);
 void resizerequest(XEvent *e);
 static void restack(Monitor *m);
-static void run(void);
-static void scan(void);
 static int sendevent(Window w, Atom proto, int m, long d0, long d1, long d2,
                      long d3, long d4);
-static void sendmon(Client *c, Monitor *m);
 static void setclientstate(Client *c, long state);
 void setfocus(Client *c);
 static void setfullscreen(Client *c, int fullscreen);
@@ -489,10 +476,6 @@ void arrangemon(Monitor *m) {
     m->lt[m->sellt]->arrange(m);
 }
 
-void attach(Client *c) { rust_attach(c); }
-
-void attachstack(Client *c) { rust_attach_stack(c); }
-
 void buttonpress(XEvent *e) {
   unsigned int i, x, click;
   Arg arg = {0};
@@ -550,7 +533,7 @@ void cleanup(void) {
   Monitor *m;
   size_t i;
 
-  view(&a);
+  rust_view(&a);
   selmon->lt[selmon->sellt] = &foo;
   for (m = mons; m; m = m->next)
     while (m->stack)
@@ -644,7 +627,7 @@ void clientmessage(XEvent *e) {
       sendevent(c->win, netatom[Xembed], StructureNotifyMask, CurrentTime,
                 XEMBED_MODALITY_ON, 0, systray->win, XEMBED_EMBEDDED_VERSION);
       XSync(dpy, False);
-      resizebarwin(selmon);
+      rust_resize_bar_window(selmon);
       updatesystray();
       setclientstate(c, NormalState);
     }
@@ -684,7 +667,7 @@ void configurenotify(XEvent *e) {
         for (c = m->clients; c; c = c->next)
           if (c->isfullscreen)
             resizeclient(c, m->mx, m->my, m->mw, m->mh);
-        resizebarwin(m);
+        rust_resize_bar_window(m);
       }
       focus(NULL);
       arrange(NULL);
@@ -766,14 +749,10 @@ void destroynotify(XEvent *e) {
     unmanage(c, 1);
   else if ((c = wintosystrayicon(ev->window))) {
     removesystrayicon(c);
-    resizebarwin(selmon);
+    rust_resize_bar_window(selmon);
     updatesystray();
   }
 }
-
-void detach(Client *c) { rust_detach(c); }
-
-void detachstack(Client *c) { rust_detach_stack(c); }
 
 Monitor *dirtomon(int dir) {
   Monitor *m = NULL;
@@ -789,8 +768,6 @@ Monitor *dirtomon(int dir) {
       ;
   return m;
 }
-
-void drawbars(void) { rust_draw_bars(); }
 
 void enternotify(XEvent *e) {
   Client *c;
@@ -832,8 +809,8 @@ void focus(Client *c) {
       selmon = c->mon;
     if (c->isurgent)
       seturgent(c, 0);
-    detachstack(c);
-    attachstack(c);
+    rust_detach_stack(c);
+    rust_attach_stack(c);
     grabbuttons(c, 1);
     XSetWindowBorder(dpy, c->win, scheme[SchemeSel][ColBorder].pixel);
     setfocus(c);
@@ -842,7 +819,7 @@ void focus(Client *c) {
     XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
   }
   selmon->sel = c;
-  drawbars();
+  rust_draw_bars();
 }
 
 /* there are some broken focus acquiring clients needing extra handling */
@@ -1102,8 +1079,8 @@ void manage(Window w, XWindowAttributes *wa) {
     c->isfloating = c->oldstate = trans != None || c->isfixed;
   if (c->isfloating)
     XRaiseWindow(dpy, c->win);
-  attach(c);
-  attachstack(c);
+  rust_attach(c);
+  rust_attach_stack(c);
   XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32,
                   PropModeAppend, (unsigned char *)&(c->win), 1);
   XMoveResizeWindow(dpy, c->win, c->x + 2 * sw, c->y, c->w,
@@ -1132,7 +1109,7 @@ void maprequest(XEvent *e) {
   if ((i = wintosystrayicon(ev->window))) {
     sendevent(i->win, netatom[Xembed], StructureNotifyMask, CurrentTime,
               XEMBED_WINDOW_ACTIVATE, 0, systray->win, XEMBED_EMBEDDED_VERSION);
-    resizebarwin(selmon);
+    rust_resize_bar_window(selmon);
     updatesystray();
   }
 
@@ -1142,21 +1119,6 @@ void maprequest(XEvent *e) {
     return;
   if (!wintoclient(ev->window))
     manage(ev->window, &wa);
-}
-
-void monocle(Monitor *m) {
-  rust_monocle(m);
-
-  // unsigned int n = 0;
-  // Client *c;
-  //
-  // for (c = m->clients; c; c = c->next)
-  // 	if (ISVISIBLE(c))
-  // 		n++;
-  // if (n > 0) /* override layout symbol */
-  // 	snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
-  // for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
-  // 	resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
 }
 
 void motionnotify(XEvent *e) {
@@ -1226,7 +1188,7 @@ void movemouse(const Arg *arg) {
   } while (ev.type != ButtonRelease);
   XUngrabPointer(dpy, CurrentTime);
   if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) {
-    sendmon(c, m);
+    rust_send_to_monitor(c, m);
     selmon = m;
     focus(NULL);
   }
@@ -1239,8 +1201,8 @@ Client *nexttiled(Client *c) {
 }
 
 void pop(Client *c) {
-  detach(c);
-  attach(c);
+  rust_detach(c);
+  rust_attach(c);
   focus(c);
   arrange(c->mon);
 }
@@ -1256,7 +1218,7 @@ void propertynotify(XEvent *e) {
       updatesystrayicongeom(c, c->w, c->h);
     } else
       updatesystrayiconstate(c, ev);
-    resizebarwin(selmon);
+    rust_resize_bar_window(selmon);
     updatesystray();
   }
 
@@ -1278,7 +1240,7 @@ void propertynotify(XEvent *e) {
       break;
     case XA_WM_HINTS:
       updatewmhints(c);
-      drawbars();
+      rust_draw_bars();
       break;
     }
     if (ev->atom == XA_WM_NAME || ev->atom == netatom[NetWMName]) {
@@ -1321,8 +1283,6 @@ void resize(Client *c, int x, int y, int w, int h, int interact) {
   if (applysizehints(c, &x, &y, &w, &h, interact))
     resizeclient(c, x, y, w, h);
 }
-
-void resizebarwin(Monitor *m) { rust_resize_bar_window(dpy, m); }
 
 void resizeclient(Client *c, int x, int y, int w, int h) {
   XWindowChanges wc;
@@ -1395,7 +1355,7 @@ void resizemouse(const Arg *arg) {
   while (XCheckMaskEvent(dpy, EnterWindowMask, &ev))
     ;
   if ((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) {
-    sendmon(c, m);
+    rust_send_to_monitor(c, m);
     selmon = m;
     focus(NULL);
   }
@@ -1407,7 +1367,7 @@ void resizerequest(XEvent *e) {
 
   if ((i = wintosystrayicon(ev->window))) {
     updatesystrayicongeom(i, ev->width, ev->height);
-    resizebarwin(selmon);
+    rust_resize_bar_window(selmon);
     updatesystray();
   }
 }
@@ -1435,12 +1395,6 @@ void restack(Monitor *m) {
   while (XCheckMaskEvent(dpy, EnterWindowMask, &ev))
     ;
 }
-
-void run(void) { rust_run(); }
-
-void scan(void) { rust_scan(); }
-
-void sendmon(Client *c, Monitor *m) { rust_send_to_monitor(c, m); }
 
 void setclientstate(Client *c, long state) {
   long data[] = {state, None};
@@ -1687,7 +1641,7 @@ void tag(const Arg *arg) {
 void tagmon(const Arg *arg) {
   if (!selmon->sel || !mons->next)
     return;
-  sendmon(selmon->sel, dirtomon(arg->i));
+  rust_send_to_monitor(selmon->sel, dirtomon(arg->i));
 }
 
 void tile(Monitor *m) { rust_tile(m); }
@@ -1695,7 +1649,7 @@ void tile(Monitor *m) { rust_tile(m); }
 void togglebar(const Arg *arg) {
   selmon->showbar = !selmon->showbar;
   updatebarpos(selmon);
-  resizebarwin(selmon);
+  rust_resize_bar_window(selmon);
   if (showsystray) {
     XWindowChanges wc;
     if (!selmon->showbar)
@@ -1761,8 +1715,8 @@ void unmanage(Client *c, int destroyed) {
   Monitor *m = c->mon;
   XWindowChanges wc;
 
-  detach(c);
-  detachstack(c);
+  rust_detach(c);
+  rust_detach_stack(c);
   if (!destroyed) {
     wc.border_width = c->oldbw;
     XGrabServer(dpy); /* avoid race conditions */
@@ -1900,10 +1854,10 @@ int updategeom(void) {
         while ((c = m->clients)) {
           dirty = 1;
           m->clients = c->next;
-          detachstack(c);
+          rust_detach_stack(c);
           c->mon = mons;
-          attach(c);
-          attachstack(c);
+          rust_attach(c);
+          rust_attach_stack(c);
         }
         if (m == selmon)
           selmon = mons;
@@ -2141,18 +2095,6 @@ void updatewmhints(Client *c) {
   }
 }
 
-// void view(const Arg *arg) {
-//   if ((arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
-//     return;
-//   selmon->seltags ^= 1; /* toggle sel tagset */
-//   if (arg->ui & TAGMASK)
-//     selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
-//   focus(NULL);
-//   arrange(selmon);
-// }
-
-void view(const Arg *arg) { rust_view(arg); }
-
 Client *wintoclient(Window w) { return rust_window_to_client(w, mons); }
 
 Client *wintosystrayicon(Window w) {
@@ -2276,9 +2218,9 @@ int main(int argc, char *argv[]) {
   if (pledge("stdio rpath proc exec", NULL) == -1)
     die("pledge");
 #endif /* __OpenBSD__ */
-  scan();
+  rust_scan();
   print_monitor(selmon);
-  run();
+  rust_run();
   cleanup();
   XCloseDisplay(dpy);
   return EXIT_SUCCESS;

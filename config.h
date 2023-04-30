@@ -62,13 +62,13 @@ static const Layout layouts[] = {
     /* symbol     arrange function */
     {"[]=", tile}, /* first entry is default */
     {"><>", NULL}, /* no layout function means floating behavior */
-    {"[M]", monocle},
+    {"[M]", rust_monocle},
 };
 
 /* key definitions */
 #define MODKEY Mod1Mask
 #define TAGKEYS(KEY, TAG)                                                      \
-  {MODKEY, KEY, view, {.ui = 1 << TAG}},                                       \
+  {MODKEY, KEY, rust_view, {.ui = 1 << TAG}},                                  \
       {MODKEY | ControlMask, KEY, toggleview, {.ui = 1 << TAG}},               \
       {MODKEY | ShiftMask, KEY, tag, {.ui = 1 << TAG}},                        \
       {MODKEY | ControlMask | ShiftMask, KEY, toggletag, {.ui = 1 << TAG}},
@@ -104,13 +104,13 @@ static Key keys[] = {
     {MODKEY, XK_l, setmfact, {.f = +0.05}},
 
     {MODKEY, XK_s, zoom, {0}},
-    {MODKEY, XK_o, view, {0}},
+    {MODKEY, XK_o, rust_view, {0}},
     {MODKEY | ShiftMask, XK_q, killclient, {0}},
 
     {MODKEY, XK_space, setlayout, {0}},
     {MODKEY | ShiftMask, XK_space, togglefloating, {0}},
 
-    {MODKEY, XK_0, view, {.ui = ~0}},
+    {MODKEY, XK_0, rust_view, {.ui = ~0}},
     {MODKEY | ShiftMask, XK_0, tag, {.ui = ~0}},
 
     {MODKEY, XK_comma, focusmon, {.i = -1}},
@@ -144,7 +144,7 @@ static Button buttons[] = {
     {ClkClientWin, MODKEY, Button1, movemouse, {0}},
     {ClkClientWin, MODKEY, Button2, togglefloating, {0}},
     {ClkClientWin, MODKEY, Button3, resizemouse, {0}},
-    {ClkTagBar, 0, Button1, view, {0}},
+    {ClkTagBar, 0, Button1, rust_view, {0}},
     {ClkTagBar, 0, Button3, toggleview, {0}},
     {ClkTagBar, MODKEY, Button1, tag, {0}},
     {ClkTagBar, MODKEY, Button3, toggletag, {0}},

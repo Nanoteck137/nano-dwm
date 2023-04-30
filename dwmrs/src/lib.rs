@@ -91,8 +91,6 @@ extern "C" {
         height: c_uint,
     );
 
-    fn resizebarwin(monitor: *mut Monitor);
-
     fn systraytomon(monitor: *mut Monitor) -> *mut Monitor;
     fn getsystraywidth() -> c_uint;
 
@@ -446,10 +444,7 @@ pub unsafe extern "C" fn rust_tile(monitor: *mut Monitor) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rust_resize_bar_window(
-    display: *mut Display,
-    monitor: *mut Monitor,
-) {
+pub unsafe extern "C" fn rust_resize_bar_window(monitor: *mut Monitor) {
     let monitor = &*monitor;
 
     let width = (*monitor).ww;
@@ -458,7 +453,7 @@ pub unsafe extern "C" fn rust_resize_bar_window(
     // 	w -= getsystraywidth();
 
     XMoveResizeWindow(
-        display,
+        dpy,
         monitor.bar_window,
         monitor.wx,
         monitor.by,
@@ -513,7 +508,7 @@ pub unsafe extern "C" fn rust_draw_bar(monitor_ptr: *mut Monitor) {
         0
     };
 
-    resizebarwin(monitor_ptr);
+    rust_resize_bar_window(monitor_ptr);
 
     // TODO(patrik): Better way?
     let arrow = CString::new("\u{e0b0}").unwrap();
@@ -990,17 +985,3 @@ pub unsafe extern "C" fn rust_send_to_monitor(
     focus(std::ptr::null_mut());
     arrange(std::ptr::null_mut());
 }
-
-// void sendmon(Client *c, Monitor *m) {
-//   if (c->mon == m)
-//     return;
-//   unfocus(c, 1);
-//   detach(c);
-//   detachstack(c);
-//   c->mon = m;
-//   c->tags = m->tagset[m->seltags]; /* assign tags of target monitor */
-//   attach(c);
-//   attachstack(c);
-//   focus(NULL);
-//   arrange(NULL);
-// }
