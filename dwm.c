@@ -296,7 +296,7 @@ static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
 static void toggletag(const Arg *arg);
 static void toggleview(const Arg *arg);
-static void unfocus(Client *c, int setfocus);
+void unfocus(Client *c, int setfocus);
 static void unmanage(Client *c, int destroyed);
 void unmapnotify(XEvent *e);
 static void updatebarpos(Monitor *m);
@@ -1440,19 +1440,7 @@ void run(void) { rust_run(); }
 
 void scan(void) { rust_scan(); }
 
-void sendmon(Client *c, Monitor *m) {
-  if (c->mon == m)
-    return;
-  unfocus(c, 1);
-  detach(c);
-  detachstack(c);
-  c->mon = m;
-  c->tags = m->tagset[m->seltags]; /* assign tags of target monitor */
-  attach(c);
-  attachstack(c);
-  focus(NULL);
-  arrange(NULL);
-}
+void sendmon(Client *c, Monitor *m) { rust_send_to_monitor(c, m); }
 
 void setclientstate(Client *c, long state) {
   long data[] = {state, None};

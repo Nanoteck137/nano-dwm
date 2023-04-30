@@ -34,3 +34,5 @@ void rust_zoom(const Arg *arg);
 
 void rust_run();
 void rust_scan();
+
+void rust_send_to_monitor(Client *client, Monitor *monitor);

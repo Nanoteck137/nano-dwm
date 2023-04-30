@@ -105,6 +105,8 @@ extern "C" {
     fn wintomon(window: Window) -> *mut Monitor;
 
     fn focus(client: *mut Client);
+    fn unfocus(client: *mut Client, setfocus: c_int);
+
     fn arrange(monitor: *mut Monitor);
 
     fn nexttiled(client: *mut Client) -> *mut Client;
@@ -968,3 +970,37 @@ pub unsafe extern "C" fn rust_scan() {
         }
     }
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_send_to_monitor(
+    client: *mut Client,
+    monitor: *mut Monitor,
+) {
+    if (*client).monitor == monitor {
+        return;
+    }
+
+    unfocus(client, 1);
+    rust_detach(client);
+    rust_detach_stack(client);
+    (*client).monitor = monitor;
+    (*client).tags = (*monitor).tagset[(*monitor).seltags as usize];
+    rust_attach(client);
+    rust_attach_stack(client);
+    focus(std::ptr::null_mut());
+    arrange(std::ptr::null_mut());
+}
+
+// void sendmon(Client *c, Monitor *m) {
+//   if (c->mon == m)
+//     return;
+//   unfocus(c, 1);
+//   detach(c);
+//   detachstack(c);
+//   c->mon = m;
+//   c->tags = m->tagset[m->seltags]; /* assign tags of target monitor */
+//   attach(c);
+//   attachstack(c);
+//   focus(NULL);
+//   arrange(NULL);
+// }
